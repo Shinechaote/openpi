@@ -271,7 +271,7 @@ class Pi0(_model.BaseModel):
             return x_t + dt * v_t, time + dt, suffix_out[0]
 
         def cond(carry):
-            x_t, time = carry
+            x_t, time, _ = carry
             # robust to floating-point error
             return time >= -dt / 2
 
