@@ -709,12 +709,13 @@ _CONFIGS = [
         # you see many warnings being thrown during training.
         # Here is an example of loading a pi0-FAST model for LoRA finetuning.
         # For setting action_dim, action_horizon, and max_token_len, see the comments above.
-        model=pi0_config.Pi0Config(
+        model=pi0_config.Pi0Config(pi05=False, action_horizon=50, discrete_state_input=False,
             paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"
         ),
         data=LeRobotLiberoDataConfig(
             repo_id="christian/mimicgen_robomimic_ph",
             base_config=DataConfig(prompt_from_task=True),
+            extra_delta_transform=False,
         ),
         # Note that we load the pi0-FAST base model checkpoint here.
         weight_loader=weight_loaders.CheckpointWeightLoader(
@@ -723,7 +724,7 @@ _CONFIGS = [
         num_train_steps=30_000,
         # Again, make sure to match the model config above when extracting the freeze filter
         # that specifies which parameters should be frozen during LoRA finetuning.
-        freeze_filter=pi0_config.Pi0Config(
+        freeze_filter=pi0_config.Pi0Config(pi05=False, action_horizon=50, discrete_state_input=False,
             paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"
         ).get_freeze_filter(),
         # Turn off EMA for LoRA finetuning.
