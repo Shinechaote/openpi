@@ -275,7 +275,7 @@ class Pi0(_model.BaseModel):
             # robust to floating-point error
             return time >= -dt / 2
 
-        x_0, _, embeds = jax.lax.while_loop(cond, step, (noise, 1.0, jnp.zeros((51, 1024), dtype='bfloat16')))
+        x_0, _, embeds = jax.lax.while_loop(cond, step, (noise, 1.0, jnp.zeros((10, 1024), dtype='bfloat16')))
         embeddings = jax.lax.stop_gradient(embeds[:1].reshape(1, -1))
 
         return x_0, embeddings
