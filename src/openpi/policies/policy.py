@@ -89,7 +89,7 @@ class Policy(BasePolicy):
 
         observation = _model.Observation.from_dict(inputs)
         start_time = time.monotonic()
-        actions, embeddings = self._sample_actions(sample_rng_or_pytorch_device, observation, **sample_kwargs),
+        actions, embeddings = self._sample_actions(sample_rng_or_pytorch_device, observation, **sample_kwargs)
 
         outputs = {
             "state": inputs["state"],
