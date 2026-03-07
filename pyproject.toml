@@ -37,7 +37,7 @@ dependencies = [
     "transformers==4.53.2",
     "rich>=14.0.0",
     "polars>=1.30.0",
-    "chex"
+    "chex",
     "datasets==3.6.0"
 ]
 
