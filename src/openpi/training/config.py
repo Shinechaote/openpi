@@ -787,6 +787,33 @@ _CONFIGS = [
         weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
         num_train_steps=30_000,
         resume=True,
+    ),TrainConfig(
+        name="pi05_dfki_racetrack",
+        model=pi0_config.Pi0Config(pi05=True, action_horizon=10, discrete_state_input=False, 
+                                   paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"),
+        data=LeRobotLiberoDataConfig(
+            repo_id="christian/racetrack_30hz_planar",
+            base_config=DataConfig(prompt_from_task=True),
+        ),
+        freeze_filter=pi0_config.Pi0Config(pi05=True, action_horizon=10,
+                             discrete_state_input=False,
+                             paligemma_variant="gemma_2b_lora",
+                             action_expert_variant="gemma_300m_lora"
+                             ).get_freeze_filter(),
+        # Turn off EMA for LoRA finetuning.
+        ema_decay=None,
+        wandb_enabled=True,
+        batch_size=128, 
+        optimizer=_optimizer.AdamW(clip_gradient_norm=1.0),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=10_000,
+            peak_lr=5e-5,
+            decay_steps=1_000_000,
+            decay_lr=5e-5,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
+        num_train_steps=30_000,
+        resume=True,
     ), TrainConfig(
         name="pi05_long_horizon_mimicgen",
         model=pi0_config.Pi0Config(pi05=True, action_horizon=10, discrete_state_input=False, 
