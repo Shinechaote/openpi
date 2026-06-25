@@ -234,10 +234,11 @@ class Pi0(_model.BaseModel):
         prefix_tokens, prefix_mask, prefix_ar_mask = self.embed_prefix(observation)
         prefix_attn_mask = make_attn_mask(prefix_mask, prefix_ar_mask)
         positions = jnp.cumsum(prefix_mask, axis=1) - 1
-        _, kv_cache = self.PaliGemma.llm([prefix_tokens, None], mask=prefix_attn_mask, positions=positions)
+        (vlm_pre, vlm_suf), kv_cache = self.PaliGemma.llm([prefix_tokens, None], mask=prefix_attn_mask, positions=positions)
+        embeddings = jax.lax.stop_gradient(jnp.expand_dims(jnp.mean(vlm_pre[0], axis=0), 0))
 
         def step(carry):
-            x_t, time, _ = carry
+            x_t, time = carry
             suffix_tokens, suffix_mask, suffix_ar_mask, adarms_cond = self.embed_suffix(
                 observation, x_t, jnp.broadcast_to(time, batch_size)
             )
@@ -268,14 +269,13 @@ class Pi0(_model.BaseModel):
             assert prefix_out is None
             v_t = self.action_out_proj(suffix_out[:, -self.action_horizon :])
 
-            return x_t + dt * v_t, time + dt, suffix_out[0]
+            return x_t + dt * v_t, time + dt
 
         def cond(carry):
-            x_t, time, _ = carry
+            x_t, time = carry
             # robust to floating-point error
             return time >= -dt / 2
 
-        x_0, _, embeds = jax.lax.while_loop(cond, step, (noise, 1.0, jnp.zeros((10, 1024), dtype='bfloat16')))
-        embeddings = jax.lax.stop_gradient(embeds[:1].reshape(1, -1))
+        x_0, _ = jax.lax.while_loop(cond, step, (noise, 1.0, ))
 
         return x_0, embeddings
