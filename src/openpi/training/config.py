@@ -514,7 +514,7 @@ class TrainConfig:
     # How often (in steps) to save checkpoints.
     save_interval: int = 1000
     # If set, any existing checkpoints matching step % keep_period == 0 will not be deleted.
-    keep_period: int | None = 5000
+    keep_period: int | None = 20000
 
     # If true, will overwrite the checkpoint directory if it already exists.
     overwrite: bool = False
@@ -812,7 +812,7 @@ _CONFIGS = [
             decay_lr=5e-5,
         ),
         weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
-        num_train_steps=30_000,
+        num_train_steps=50_000,
         resume=True,
     ),TrainConfig(
         name="pi05_2k_six_env_mimicgen",
@@ -839,7 +839,7 @@ _CONFIGS = [
             decay_lr=5e-5,
         ),
         weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
-        num_train_steps=30_000,
+        num_train_steps=300_000,
         resume=True,
     ),TrainConfig(
         name="pi05_dfki_racetrack",
@@ -868,7 +868,42 @@ _CONFIGS = [
         weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
         num_train_steps=30_000,
         resume=True,
-    ), TrainConfig(
+    ),
+    *[
+        TrainConfig(
+            name=f"pi05_racetrack_{num_demos}",
+            model=pi0_config.Pi0Config(pi05=True, action_horizon=10, discrete_state_input=False,
+                                       paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"),
+            data=LeRobotLiberoDataConfig(
+                repo_id=f"christian/racetrack_{num_demos}",
+                base_config=DataConfig(prompt_from_task=True),
+            ),
+            freeze_filter=pi0_config.Pi0Config(pi05=True, action_horizon=10,
+                                 discrete_state_input=False,
+                                 paligemma_variant="gemma_2b_lora",
+                                 action_expert_variant="gemma_300m_lora"
+                                 ).get_freeze_filter(),
+            # Turn off EMA for LoRA finetuning.
+            ema_decay=None,
+            wandb_enabled=True,
+            batch_size=128,
+            optimizer=_optimizer.AdamW(clip_gradient_norm=1.0),
+            lr_schedule=_optimizer.CosineDecaySchedule(
+                warmup_steps=10_000,
+                peak_lr=5e-5,
+                decay_steps=1_000_000,
+                decay_lr=5e-5,
+            ),
+            weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
+            num_train_steps=20_000,
+            save_interval=1_000,
+            # Ensures every 5k-step checkpoint (5k/10k/15k/20k) is retained permanently; other
+            # 1k-step saves rotate (max_to_keep=1), independent of the global default.
+            keep_period=5_000,
+            resume=True,
+        )
+        for num_demos in (10, 20, 50, 100)
+    ], TrainConfig(
         name="pi05_long_horizon_mimicgen",
         model=pi0_config.Pi0Config(pi05=True, action_horizon=10, discrete_state_input=False, 
                                    paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"),

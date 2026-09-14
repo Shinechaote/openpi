@@ -238,7 +238,7 @@ def main(config: _config.TrainConfig):
     logging.info(f"Initialized train state:\n{training_utils.array_tree_to_info(train_state.params)}")
 
     if resuming:
-        train_state = _checkpoints.restore_state(checkpoint_manager, train_state, data_loader)
+        train_state = _checkpoints.restore_state(checkpoint_manager, train_state, data_loader, train_state_sharding)
 
     ptrain_step = jax.jit(
         functools.partial(train_step, config),

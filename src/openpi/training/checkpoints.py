@@ -90,6 +90,7 @@ def restore_state(
     checkpoint_manager: ocp.CheckpointManager,
     state: training_utils.TrainState,
     data_loader: _data_loader.DataLoader,
+    state_sharding: training_utils.TrainState,
     step: int | None = None,
 ) -> training_utils.TrainState:
     del data_loader
@@ -97,12 +98,27 @@ def restore_state(
     with at.disable_typechecking():
         # Split params that can be used for inference into a separate item.
         train_state, params = _split_params(state)
+        train_state_sharding, params_sharding = _split_params(state_sharding)
+        # Explicitly construct restore args targeting the *current* device mesh. Without this, orbax falls back to
+        # the device mesh recorded in the checkpoint's sharding file, which fails if the checkpoint was saved with a
+        # different number of devices than are currently available.
+        restore_kwargs = {
+            "train_state": {
+                "restore_args": ocp.checkpoint_utils.construct_restore_args(train_state, train_state_sharding)
+            },
+            "params": {
+                "restore_args": {
+                    "params": ocp.checkpoint_utils.construct_restore_args(params, params_sharding)
+                }
+            },
+        }
         restored = checkpoint_manager.restore(
             step,
             items={
                 "train_state": train_state,
                 "params": {"params": params},
             },
+            restore_kwargs=restore_kwargs,
         )
     return _merge_params(restored["train_state"], restored["params"])
 

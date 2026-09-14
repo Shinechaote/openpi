@@ -39,6 +39,7 @@ dependencies = [
     "polars>=1.30.0",
     "chex",
     "datasets>=2.19.0,<4.0.0",
+    "gcsfs>=2024.6.0"
 ]
 
 
