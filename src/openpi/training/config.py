@@ -895,14 +895,15 @@ _CONFIGS = [
                 decay_lr=5e-5,
             ),
             weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
-            num_train_steps=20_000,
+            # racetrack_281 uses the full dataset, so it gets a longer training run.
+            num_train_steps=30_000 if num_demos == 281 else 20_000,
             save_interval=1_000,
-            # Ensures every 5k-step checkpoint (5k/10k/15k/20k) is retained permanently; other
-            # 1k-step saves rotate (max_to_keep=1), independent of the global default.
+            # Ensures every 5k-step checkpoint is retained permanently; other 1k-step saves
+            # rotate (max_to_keep=1), independent of the global default.
             keep_period=5_000,
             resume=True,
         )
-        for num_demos in (10, 20, 50, 100)
+        for num_demos in (10, 20, 50, 100, 281)
     ], TrainConfig(
         name="pi05_long_horizon_mimicgen",
         model=pi0_config.Pi0Config(pi05=True, action_horizon=10, discrete_state_input=False, 
