@@ -895,15 +895,55 @@ _CONFIGS = [
                 decay_lr=5e-5,
             ),
             weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
-            # racetrack_281 uses the full dataset, so it gets a longer training run.
-            num_train_steps=30_000 if num_demos == 281 else 20_000,
+            # racetrack_281 (full dataset) and racetrack_top_right both get a longer run.
+            num_train_steps=30_000 if num_demos in (281, "top_right") else 20_000,
             save_interval=1_000,
-            # Ensures every 5k-step checkpoint is retained permanently; other 1k-step saves
-            # rotate (max_to_keep=1), independent of the global default.
+            # Ensures every keep_period-step checkpoint is retained permanently; other
+            # 1k-step saves rotate (max_to_keep=1), independent of the global default.
+            # top_right keeps a sparser grid (every 10k) since it trains for 30k steps.
+            keep_period=10_000 if num_demos == "top_right" else 5_000,
+            resume=True,
+        )
+        # Values are either a demo count (random nested subset of that size, see
+        # convert_hdf5_dataset_to_lerobot.py) or a `configuration` name (all demos with that
+        # exact orientation, e.g. "top_right" selects the 32 demos with that hdf5 attr).
+        for num_demos in (10, 20, 50, 100, 281, "top_right")
+    ],
+    # Demo-count ablation restricted to the bottom_right configuration, taking the
+    # highest-`quality` demos first (see convert_hdf5_dataset_to_lerobot.py). 10/30/90 are
+    # all "good"; 180 exhausts the 158 "good" and tops up with 22 "medium".
+    *[
+        TrainConfig(
+            name=f"pi05_racetrack_bottom_right_{num_demos}",
+            model=pi0_config.Pi0Config(pi05=True, action_horizon=10, discrete_state_input=False,
+                                       paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"),
+            data=LeRobotLiberoDataConfig(
+                repo_id=f"christian/racetrack_bottom_right_{num_demos}",
+                base_config=DataConfig(prompt_from_task=True),
+            ),
+            freeze_filter=pi0_config.Pi0Config(pi05=True, action_horizon=10,
+                                 discrete_state_input=False,
+                                 paligemma_variant="gemma_2b_lora",
+                                 action_expert_variant="gemma_300m_lora"
+                                 ).get_freeze_filter(),
+            # Turn off EMA for LoRA finetuning.
+            ema_decay=None,
+            wandb_enabled=True,
+            batch_size=128,
+            optimizer=_optimizer.AdamW(clip_gradient_norm=1.0),
+            lr_schedule=_optimizer.CosineDecaySchedule(
+                warmup_steps=10_000,
+                peak_lr=5e-5,
+                decay_steps=1_000_000,
+                decay_lr=5e-5,
+            ),
+            weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
+            num_train_steps=20_000,
+            save_interval=1_000,
             keep_period=5_000,
             resume=True,
         )
-        for num_demos in (10, 20, 50, 100, 281)
+        for num_demos in (10, 30, 90, 180)
     ], TrainConfig(
         name="pi05_long_horizon_mimicgen",
         model=pi0_config.Pi0Config(pi05=True, action_horizon=10, discrete_state_input=False, 
