@@ -944,6 +944,47 @@ _CONFIGS = [
             resume=True,
         )
         for num_demos in (10, 30, 90, 180)
+    ],
+    # Demo-count ablation on the newer top_right-only recording session
+    # (`planar_race_track_top_right_30hz.hdf5`, 181 demos, all quality=good). This is a
+    # different hdf5 file from the one behind `pi05_racetrack_*` /
+    # `pi05_racetrack_bottom_right_*`, hence the `_tr_` naming
+    # (`convert_hdf5_dataset_to_lerobot.py --source top_right --num-demos N`); do not
+    # confuse it with `pi05_racetrack_top_right`, which is the 32 top_right demos of the
+    # old mixed-configuration file.
+    *[
+        TrainConfig(
+            name=f"pi05_racetrack_tr_{num_demos}",
+            model=pi0_config.Pi0Config(pi05=True, action_horizon=10, discrete_state_input=False,
+                                       paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"),
+            data=LeRobotLiberoDataConfig(
+                repo_id=f"christian/racetrack_tr_{num_demos}",
+                base_config=DataConfig(prompt_from_task=True),
+            ),
+            freeze_filter=pi0_config.Pi0Config(pi05=True, action_horizon=10,
+                                 discrete_state_input=False,
+                                 paligemma_variant="gemma_2b_lora",
+                                 action_expert_variant="gemma_300m_lora"
+                                 ).get_freeze_filter(),
+            # Turn off EMA for LoRA finetuning.
+            ema_decay=None,
+            wandb_enabled=True,
+            # 2 GPUs per run (not 4), so batch is halved to keep per-device batch at 32.
+            batch_size=64,
+            optimizer=_optimizer.AdamW(clip_gradient_norm=1.0),
+            lr_schedule=_optimizer.CosineDecaySchedule(
+                warmup_steps=10_000,
+                peak_lr=5e-5,
+                decay_steps=1_000_000,
+                decay_lr=5e-5,
+            ),
+            weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
+            num_train_steps=30_000,
+            save_interval=1_000,
+            keep_period=20_000,
+            resume=True,
+        )
+        for num_demos in (60, 90, 120, 150, 180)
     ], TrainConfig(
         name="pi05_long_horizon_mimicgen",
         model=pi0_config.Pi0Config(pi05=True, action_horizon=10, discrete_state_input=False, 
